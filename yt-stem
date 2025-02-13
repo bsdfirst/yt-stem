@@ -1,0 +1,47 @@
+#!/bin/zsh
+
+if [ -z "$1" ] && [ -z "$2" ]; then
+  echo "${0} <yt-dlp url> <song title>"
+  exit 2
+fi
+
+DL_URL="$1"
+TITLE="$2"
+
+source ~pat/demucs/bin/activate
+
+TMP=/tmp/${0:t}.$$
+OLDCWD=$(pwd)
+mkdir ${TMP} && cd ${TMP}
+
+mkdir -p "$TITLE"
+mkdir -p "${TITLE}/tempo_1.00x"
+
+cd "${TITLE}"
+original="${TITLE} [1.00x__ORIGINAL].flac"
+yt-dlp -x --audio-format flac -P "tempo_1.00x" -o "${original:r}.%(ext)s" "$1"
+demucs -n htdemucs_6s --mp3 --mp3-bitrate 384 --mp3-preset 2 "tempo_1.00x/${original}"
+
+p="separated/htdemucs_6s/${original:r}"
+filter="normalize=0:duration=longest"
+ffmpeg -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=5:${filter} "tempo_1.00x/${TITLE} [1.00x__DRUMS_GUITAR_PIANO_VOCALS_OTHER].mp3"
+ffmpeg -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=5:${filter} "tempo_1.00x/${TITLE} [1.00x__BASS_DRUMS_PIANO_VOCALS_OTHER].mp3"
+ffmpeg -i ${p}/drums.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=4:${filter} "tempo_1.00x/${TITLE} [1.00x__DRUMS_PIANO_VOCALS_OTHER].mp3"
+ffmpeg -i ${p}/drums.mp3 -i ${p}/piano.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=3:${filter} "tempo_1.00x/${TITLE} [1.00x__DRUMS_PIANO_OTHER].mp3"
+cp ${p}/bass.mp3 "tempo_1.00x/${TITLE} [1.00x__BASS].mp3"
+cp ${p}/guitar.mp3 "tempo_1.00x/${TITLE} [1.00x__GUITAR].mp3"
+cp ${p}/drums.mp3 "tempo_1.00x/${TITLE} [1.00x__DRUMS].mp3"
+rm -rf separated
+
+for tempo in 0.50 0.55 0.60 0.65 0.70 0.75 0.80 0.85 0.90 0.95 1.10 1.15 1.20; do
+  mkdir "tempo_${tempo}x"
+
+  for infile in tempo_1.00x/*; do
+    outfile=$(echo "${infile:t}" | sed "s/1.00x__/${tempo}x__/")
+    ffmpeg -i "${infile}" -filter:a "atempo=${tempo}" "tempo_${tempo}x/${outfile}"
+  done
+done
+
+cd "${OLDCWD}"
+mv "${TMP}/${TITLE}" .
+[ ! -z "${TMP}" ] && rm -rf "${TMP}"
