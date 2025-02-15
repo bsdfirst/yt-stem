@@ -25,6 +25,7 @@ demucs -n htdemucs_6s --mp3 --mp3-bitrate 384 --mp3-preset 2 "tempo_1.00x/${orig
 p="separated/htdemucs_6s/${original:r}"
 filter="normalize=0:duration=longest"
 ffmpeg -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=5:${filter} "tempo_1.00x/${TITLE} [1.00x__DRUMS_GUITAR_PIANO_VOCALS_OTHER].mp3"
+ffmpeg -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=4:${filter} "tempo_1.00x/${TITLE} [1.00x__DRUMS_GUITAR_PIANO_OTHER].mp3"
 ffmpeg -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=5:${filter} "tempo_1.00x/${TITLE} [1.00x__BASS_DRUMS_PIANO_VOCALS_OTHER].mp3"
 ffmpeg -i ${p}/drums.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=4:${filter} "tempo_1.00x/${TITLE} [1.00x__DRUMS_PIANO_VOCALS_OTHER].mp3"
 ffmpeg -i ${p}/drums.mp3 -i ${p}/piano.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=3:${filter} "tempo_1.00x/${TITLE} [1.00x__DRUMS_PIANO_OTHER].mp3"
