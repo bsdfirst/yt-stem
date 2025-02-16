@@ -8,41 +8,163 @@ fi
 DL_URL="$1"
 TITLE="$2"
 
+# Colours for status output.
+RESET="\033[0;0m"
+BLACK="\033[0;30m"
+RED="\033[0;31m"
+GREEN="\033[0;32m"
+BROWN="\033[0;33m"
+BLUE="\033[0;34m"
+PURPLE="\033[0;35m"
+CYAN="\033[0;36m"
+LIGHT_GRAY="\033[0;37m"
+DARK_GRAY="\033[1;30m"
+LIGHT_RED="\033[1;31m"
+LIGHT_GREEN="\033[1;32m"
+YELLOW="\033[1;33m"
+LIGHT_BLUE="\033[1;34m"
+LIGHT_PURPLE="\033[1;35m"
+LIGHT_CYAN="\033[1;36m"
+WHITE="\033[1;37m"
+msg() {
+  echo "${LIGHT_GREEN}====> ${YELLOW}$1${RESET}"
+}
+msgf() {
+  echo -n "${LIGHT_GREEN}====> ${YELLOW}$1${RESET}"
+}
+
+
+# Set ffmpeg -loglevel ${LOGLEVEL} log level.
+LOGLEVEL="16"
+
+# Configure ffmpeg output CODEC and combining filter.
+FILTER="normalize=0:duration=longest"
+QUALITY="2"
+
+# Activate the demucs python venv.
+msg "Activate demucs python venv."
 source ~pat/demucs/bin/activate
 
+msg "Create temporary working directory..."
 TMP=/tmp/${0:t}.$$
 OLDCWD=$(pwd)
 mkdir ${TMP} && cd ${TMP}
+pwd
 
 mkdir -p "$TITLE"
 mkdir -p "${TITLE}/tempo_1.00x"
 
 cd "${TITLE}"
 original="${TITLE} [1.00x__ORIGINAL].flac"
+msg "Download $TITLE from Youtube link..."
 yt-dlp -x --audio-format flac -P "tempo_1.00x" -o "${original:r}.%(ext)s" "$1"
-demucs -n htdemucs_6s --mp3 --mp3-bitrate 384 --mp3-preset 2 "tempo_1.00x/${original}"
 
+msg "Split out to stems with demucs..."
+demucs -n htdemucs_6s --mp3 --mp3-bitrate 384 --mp3-preset 2 "tempo_1.00x/${original}"
 p="separated/htdemucs_6s/${original:r}"
-filter="normalize=0:duration=longest"
-ffmpeg -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=5:${filter} "tempo_1.00x/${TITLE} [1.00x__DRUMS_GUITAR_PIANO_VOCALS_OTHER].mp3"
-ffmpeg -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=4:${filter} "tempo_1.00x/${TITLE} [1.00x__DRUMS_GUITAR_PIANO_OTHER].mp3"
-ffmpeg -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=5:${filter} "tempo_1.00x/${TITLE} [1.00x__BASS_DRUMS_PIANO_VOCALS_OTHER].mp3"
-ffmpeg -i ${p}/drums.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=4:${filter} "tempo_1.00x/${TITLE} [1.00x__DRUMS_PIANO_VOCALS_OTHER].mp3"
-ffmpeg -i ${p}/drums.mp3 -i ${p}/piano.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=3:${filter} "tempo_1.00x/${TITLE} [1.00x__DRUMS_PIANO_OTHER].mp3"
-cp ${p}/bass.mp3 "tempo_1.00x/${TITLE} [1.00x__BASS].mp3"
-cp ${p}/guitar.mp3 "tempo_1.00x/${TITLE} [1.00x__GUITAR].mp3"
-cp ${p}/drums.mp3 "tempo_1.00x/${TITLE} [1.00x__DRUMS].mp3"
+
+# Single instrument practice tracks.
+out_path="tempo_1.00x/solo_backing"
+mkdir -p "${out_path}"
+msgf "Create solo tracks"
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=5:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__NO_BASS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=5:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__NO_DRUMS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=5:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__NO_GUITAR].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=5:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__NO_PIANO].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=5:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__NO_VOCALS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -filter_complex amix=inputs=5:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__NO_OTHER].mp3" && echo -n "."
+echo
+
+# Band combo practice tracks.
+out_path="tempo_1.00x/combo_backing"
+mkdir -p "${out_path}"
+msgf "Create combo backing tracks"
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -filter_complex amix=inputs=2:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_DRUMS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/guitar.mp3 -filter_complex amix=inputs=2:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_GUITAR].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/piano.mp3 -filter_complex amix=inputs=2:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_PIANO].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/vocals.mp3 -filter_complex amix=inputs=2:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_VOCALS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=2:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -filter_complex amix=inputs=2:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__DRUMS_GUITAR].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/drums.mp3 -i ${p}/piano.mp3 -filter_complex amix=inputs=2:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__DRUMS_PIANO].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/drums.mp3 -i ${p}/vocals.mp3 -filter_complex amix=inputs=2:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__DRUMS_VOCALS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/drums.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=2:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__DRUMS_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -filter_complex amix=inputs=2:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__GUITAR_PIANO].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/guitar.mp3 -i ${p}/vocals.mp3 -filter_complex amix=inputs=2:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__GUITAR_VOCALS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/guitar.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=2:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__GUITAR_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -filter_complex amix=inputs=2:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__PIANO_VOCALS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/piano.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=2:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__PIANO_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=2:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__VOCALS_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_DRUMS_GUITAR].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/piano.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_DRUMS_PIANO].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/vocals.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_DRUMS_VOCALS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_DRUMS_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_GUITAR_PIANO].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/guitar.mp3 -i ${p}/vocals.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_GUITAR_VOCALS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/guitar.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_GUITAR_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_PIANO_VOCALS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/piano.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_PIANO_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_VOCALS_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__DRUMS_GUITAR_PIANO].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/vocals.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__DRUMS_GUITAR_VOCALS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__DRUMS_GUITAR_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/drums.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__DRUMS_PIANO_VOCALS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/drums.mp3 -i ${p}/piano.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__DRUMS_PIANO_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/drums.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__DRUMS_VOCALS_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__GUITAR_PIANO_VOCALS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__GUITAR_PIANO_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/guitar.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__GUITAR_VOCALS_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=3:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__PIANO_VOCALS_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -filter_complex amix=inputs=4:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_DRUMS_GUITAR_PIANO].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/vocals.mp3 -filter_complex amix=inputs=4:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_DRUMS_GUITAR_VOCALS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=4:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_DRUMS_GUITAR_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -filter_complex amix=inputs=4:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_DRUMS_PIANO_VOCALS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/piano.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=4:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_DRUMS_PIANO_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=4:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_DRUMS_VOCALS_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -filter_complex amix=inputs=4:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_GUITAR_PIANO_VOCALS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=4:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_GUITAR_PIANO_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/guitar.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=4:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_GUITAR_VOCALS_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=4:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_PIANO_VOCALS_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -filter_complex amix=inputs=4:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__DRUMS_GUITAR_PIANO_VOCALS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=4:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__DRUMS_GUITAR_PIANO_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=4:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__DRUMS_GUITAR_VOCALS_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/drums.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=4:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__DRUMS_PIANO_VOCALS_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=4:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__GUITAR_PIANO_VOCALS_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -filter_complex amix=inputs=5:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_DRUMS_GUITAR_PIANO_VOCALS].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=5:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_DRUMS_GUITAR_PIANO_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=5:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_DRUMS_GUITAR_VOCALS_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/drums.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=5:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_DRUMS_PIANO_VOCALS_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/bass.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=5:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__BASS_GUITAR_PIANO_VOCALS_OTHER].mp3" && echo -n "."
+ffmpeg -loglevel ${LOGLEVEL} -i ${p}/drums.mp3 -i ${p}/guitar.mp3 -i ${p}/piano.mp3 -i ${p}/vocals.mp3 -i ${p}/other.mp3 -filter_complex amix=inputs=5:${FILTER} -codec:a libmp3lame -qscale:a ${QUALITY} "${out_path}/${TITLE} [1.00x__DRUMS_GUITAR_PIANO_VOCALS_OTHER].mp3" && echo -n "."
+echo
+
+# Single instrument stems.
+out_path="tempo_1.00x/stems"
+mkdir -p "${out_path}"
+msgf "Preserve individual stems..."
+cp -v ${p}/bass.mp3 "${out_path}/${TITLE} [1.00x__BASS].mp3"
+cp -v ${p}/drums.mp3 "${out_path}/${TITLE} [1.00x__DRUMS].mp3"
+cp -v ${p}/guitar.mp3 "${out_path}/${TITLE} [1.00x__GUITAR].mp3"
+cp -v ${p}/piano.mp3 "${out_path}/${TITLE} [1.00x__PIANO].mp3"
+cp -v ${p}/vocals.mp3 "${out_path}/${TITLE} [1.00x__VOCALS].mp3"
+cp -v ${p}/other.mp3 "${out_path}/${TITLE} [1.00x__OTHER].mp3"
+
+# Clean up old stems.
+msg "Clean up temporary stems..."
 rm -rf separated
 
-for tempo in 0.50 0.55 0.60 0.65 0.70 0.75 0.80 0.85 0.90 0.95 1.10 1.15 1.20; do
-  mkdir "tempo_${tempo}x"
-
-  for infile in tempo_1.00x/*; do
-    outfile=$(echo "${infile:t}" | sed "s/1.00x__/${tempo}x__/")
-    ffmpeg -i "${infile}" -filter:a "atempo=${tempo}" "tempo_${tempo}x/${outfile}"
+# Create all tempos for all versions.
+for tempo in 0.50 0.60 0.75 0.85 0.90 0.95 1.10 1.20; do
+  msgf "Create versions at tempo ${tempo}"
+  local IFS=$'\n'
+  for infile in $(find tempo_1.00x -type f -iname '*flac' -o -iname '*mp3'); do
+    outfile=$(echo "${infile}" | sed "s/1.00x__/${tempo}x__/" | sed "s/tempo_1.00x/tempo_${tempo}x/")
+    mkdir -p "${outfile:h}"
+    ffmpeg -loglevel ${LOGLEVEL} -i "${infile}" -filter:a "atempo=${tempo}" -codec:a libmp3lame -qscale:a ${QUALITY} "${outfile:r}.mp3" && echo -n "."
   done
+  echo
 done
 
 cd "${OLDCWD}"
 mv "${TMP}/${TITLE}" .
+msg "Clean up ${TMP}..."
 [ ! -z "${TMP}" ] && rm -rf "${TMP}"
