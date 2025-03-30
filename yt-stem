@@ -166,14 +166,15 @@ for tempo in 0.50 0.60 0.75 0.85 0.90 0.95 1.10 1.20; do
 done
 
 # Remove existing copy if needed.
+cd "${OLDCWD}"
 if [ -d "${TITLE}" ]; then
   msg "Song already exists, removing..."
   rm -rf "${TITLE}"
 fi
 
 # Move processed files into place.
-msg "Move files into place..."
 cd "${OLDCWD}"
+msg "Move files into place..."
 mv "${TMP}/${TITLE}" .
 
 msg "Clean up ${TMP}..."
