@@ -1,6 +1,6 @@
 #!/bin/zsh
 
-if [ -z "$1" ] && [ -z "$2" ]; then
+if [ -z "$2" ]; then
   echo "${0} <yt-dlp url> <song title>"
   exit 2
 fi
@@ -57,7 +57,8 @@ mkdir -p "${TITLE}/tempo_1.00x"
 cd "${TITLE}"
 original="${TITLE} [1.00x__ORIGINAL].flac"
 msg "Download $TITLE from Youtube link..."
-yt-dlp -x --audio-format flac -P "tempo_1.00x" -o "${original:r}.%(ext)s" "$1"
+yt-dlp -x --audio-format flac -P "tempo_1.00x" -o "${original:r}.%(ext)s" "${DL_URL}"
+echo $DL_URL > .src
 
 msg "Split out to stems with demucs..."
 demucs -n htdemucs_6s --mp3 --mp3-bitrate 384 --mp3-preset 2 "tempo_1.00x/${original}"
@@ -164,7 +165,16 @@ for tempo in 0.50 0.60 0.75 0.85 0.90 0.95 1.10 1.20; do
   echo
 done
 
+# Remove existing copy if needed.
+if [ -d "${TITLE}" ]; do
+  msg "Song already exists, removing..."
+  rm -rf "${TITLE}"
+fi
+
+# Move processed files into place.
+msg "Move files into place..."
 cd "${OLDCWD}"
 mv "${TMP}/${TITLE}" .
+
 msg "Clean up ${TMP}..."
 [ ! -z "${TMP}" ] && rm -rf "${TMP}"
